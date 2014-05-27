@@ -28,7 +28,7 @@ public interface ReplicaServerClientInterface extends Remote {
 	 * @throws IOException
 	 * @throws RemoteException
 	 */
-	public WriteMsg write(long txnID, long msgSeqNum, FileContent data)
+	public ChunkAck write(long txnID, long msgSeqNum, FileContent data)
 			throws RemoteException, IOException;
 	
 	/**
@@ -40,9 +40,10 @@ public interface ReplicaServerClientInterface extends Remote {
 	 * @return true for acknowledgment
 	 * @throws MessageNotFoundException
 	 * @throws RemoteException
+	 * @throws IOException 
 	 */
 	public boolean commit(long txnID, long numOfMsgs)
-			throws MessageNotFoundException, RemoteException;
+			throws MessageNotFoundException, RemoteException, IOException;
 	
 	/**
 	 * * @param txnID: the ID of the transaction to which this message relates

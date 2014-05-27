@@ -28,6 +28,6 @@ public interface MasterServerClientInterface extends Remote {
 	 * @throws RemoteException
 	 * @throws IOException
 	 */
-	public WriteMsg write(String data) throws RemoteException, IOException;
+	public WriteAck write(String data) throws RemoteException, IOException;
 
 }
