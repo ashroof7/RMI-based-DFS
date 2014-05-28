@@ -17,7 +17,7 @@ public class Master implements MasterReplicaInterface, MasterServerClientInterfa
 	Map<String,	 ReplicaLoc> primaryReplicaMap;
 	Map<Integer, String> activeTransactions; // active transactions <ID, fileName>
 	List<ReplicaLoc> replicaServersLocs;
-	List<ReplicaMasterInterface> replicaServers; // TODO init
+	List<ReplicaMasterInterface> replicaServersStubs; // TODO init
 
 
 	Random randomGen;
@@ -73,6 +73,19 @@ public class Master implements MasterReplicaInterface, MasterServerClientInterfa
 
 
 	/**
+	 * iterate over all replicas and check state
+	 */
+	private void checkReplicasAlive(){
+		for (ReplicaLoc replicaLoc : replicaServersLocs) {
+//			try{
+				replicaServersStubs.get(replicaLoc.getId()).isAlive();
+//			}catch (RemoteException e){
+//				replicaLoc.setAlive(false);
+//			}
+		}
+	}
+	
+	/**
 	 * @param fileName
 	 * elects a new primary replica for the given file
 	 */
@@ -83,9 +96,11 @@ public class Master implements MasterReplicaInterface, MasterServerClientInterfa
 			if (replicaLoc.isAlive()){
 				newPrimaryAssigned = true;
 				primaryReplicaMap.put(fileName, replicaLoc);
+				replicaServersStubs.get(replicaLoc.getId()).takeCharge(fileName, filesLocationMap.get(fileName));
 				break;
 			}
 		}
+		
 		if (!newPrimaryAssigned){
 			//TODO a7a ya3ni
 		}
@@ -110,7 +125,7 @@ public class Master implements MasterReplicaInterface, MasterServerClientInterfa
 			replicas.add(replicaServersLocs.get(luckyReplicas[i]));
 			// create the file at the lucky replicas 
 			try {
-				replicaServers.get(luckyReplicas[i]).createFile(fileName);
+				replicaServersStubs.get(luckyReplicas[i]).createFile(fileName);
 			} catch (IOException e) {
 				// failed to create the file at replica server 
 				e.printStackTrace();
@@ -142,6 +157,7 @@ public class Master implements MasterReplicaInterface, MasterServerClientInterfa
 			// TODO replicaServers.add(......);
 		}
 		br.close();
-
 	}
+	
+	//TODO add commit to master to handle meta-data
 }

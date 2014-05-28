@@ -1,8 +1,8 @@
 
 public class FileContent {
 	
-	String fileName;
-	byte[] data;
+	private String fileName;
+	private byte[] data;
 	
 	public FileContent(String fileName, byte[] data) {
 		this.fileName = fileName;
@@ -12,7 +12,6 @@ public class FileContent {
 	public FileContent(String fileName) {
 		this(fileName, null);
 	}
-
 	
 	
 	public String getFileName() {

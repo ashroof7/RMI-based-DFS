@@ -18,6 +18,10 @@ public class ReplicaLoc {
 		return id;
 	}
 	
+	void setAlive(boolean isAlive){
+		this.isAlive = isAlive;
+	}
+	
 	String getAddress(){
 		return address;
 	}

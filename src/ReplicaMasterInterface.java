@@ -1,5 +1,6 @@
 import java.io.IOException;
 import java.rmi.Remote;
+import java.util.List;
 
 
 public interface ReplicaMasterInterface extends Remote{
@@ -11,8 +12,16 @@ public interface ReplicaMasterInterface extends Remote{
 	 */
 	void createFile(String fileName) throws IOException;
 	
-	void writeReply();
+	/**
+	 * makes the current replica the master of the passed file
+	 * @param fileName 
+	 * @param slaveReplicas another replicas having the files
+	 */
+	void takeCharge(String fileName, List<ReplicaLoc> slaveReplicas) ;
 	
-	void readReply();
+	/**
+	 * @return true if the replica alive and received the call .. no return otherwise,
+	 */
+	boolean isAlive();
 	
 }

@@ -1,46 +1,45 @@
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.nio.file.Files;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 
 public class ReplicaServer implements ReplicaServerClientInterface,
 		ReplicaMasterInterface, ReplicaReplicaInterface, Remote {
 
 	
-	String dir;
-	String tmp; // temp files 
-	int id;
-	Map<Long, String> activeTxn; // map between active transactions and file names
-	Map<Long, TreeMap<Long, byte[]>> txnFileMap; // map between transaction ID and corresponding file chunks
-	//FIXME set
-	Map<String,	 ArrayList<ReplicaReplicaInterface> > filesReplicaMap; //replicas where files that this replica is its master are replicated  
+	private String dir;
+	
+	private int id;
+	private Map<Long, String> activeTxn; // map between active transactions and file names
+	private Map<Long, Map<Long, byte[]>> txnFileMap; // map between transaction ID and corresponding file chunks
+	private Map<String,	 List<ReplicaReplicaInterface> > filesReplicaMap; //replicas where files that this replica is its master are replicated  
+	private Map<Integer, ReplicaLoc> replicaServersLoc; // Map<ReplicaID, replicaLoc>
+	private Map<Integer, ReplicaReplicaInterface> replicaServersStubs; // Map<ReplicaID, replicaStub>
 	
 	//	TODO move to mesh 3aref eh 
 	public static final int CHUNK_SIZE = 1024; // in bytes 
 	
 	
+	
 	public ReplicaServer(int id, String dir) {
 		this.id = id;
 		this.dir = dir+"/";
-		this.tmp = dir+"/temp/";
-		txnFileMap = new TreeMap<Long, TreeMap<Long, byte[]>>();
+		txnFileMap = new TreeMap<Long, Map<Long, byte[]>>();
 		activeTxn = new TreeMap<Long, String>();
+		filesReplicaMap = new TreeMap<String, List<ReplicaReplicaInterface>>();
+		replicaServersLoc = new TreeMap<Integer, ReplicaLoc>();
+		replicaServersStubs = new TreeMap<Integer, ReplicaReplicaInterface>();
 		init();
 	}
 
@@ -48,18 +47,6 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 	public void createFile(String fileName) throws IOException {
 		File file = new File(dir+fileName);
 		file.createNewFile();
-	}
-
-	@Override
-	public void writeReply() {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void readReply() {
-		// TODO Auto-generated method stub
-
 	}
 
 	@Override
@@ -85,23 +72,23 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 		// if this is not the first message of the write transaction
 		if (!txnFileMap.containsKey(txnID)){
 			txnFileMap.put(txnID, new TreeMap<Long, byte[]>());
-			activeTxn.put(txnID, data.fileName);
+			activeTxn.put(txnID, data.getFileName());
 		}
 
-		TreeMap<Long, byte[]> chunkMap =  txnFileMap.get(txnID);
-		chunkMap.put(msgSeqNum, data.data);
+		Map<Long, byte[]> chunkMap =  txnFileMap.get(txnID);
+		chunkMap.put(msgSeqNum, data.getData());
 		return new ChunkAck(txnID, msgSeqNum);
 	}
 
 	@Override
 	public boolean commit(long txnID, long numOfMsgs)
 			throws MessageNotFoundException, RemoteException, IOException {
-		TreeMap<Long, byte[]> chunkMap = txnFileMap.get(txnID);
+		Map<Long, byte[]> chunkMap = txnFileMap.get(txnID);
 		if (chunkMap.size() < numOfMsgs)
 			throw new MessageNotFoundException();
 		
 		String fileName = activeTxn.get(txnID);
-		ArrayList<ReplicaReplicaInterface> slaveReplicas = filesReplicaMap.get(fileName);
+		List<ReplicaReplicaInterface> slaveReplicas = filesReplicaMap.get(fileName);
 		
 		for (ReplicaReplicaInterface replica : slaveReplicas) {
 			boolean sucess = replica.reflectUpdate(txnID, fileName, chunkMap.values());
@@ -127,7 +114,8 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 
 	@Override
 	public boolean abort(long txnID) throws RemoteException {
-		// TODO Auto-generated method stub
+		activeTxn.remove(txnID);
+		filesReplicaMap.remove(txnID);
 		return false;
 	}
 
@@ -150,6 +138,38 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 		bw.close();
 		
 		activeTxn.remove(txnID);
+		return true;
+	}
+
+	@Override
+	public void takeCharge(String fileName, List<ReplicaLoc> slaveReplicas) {
+		List<ReplicaReplicaInterface> slaveReplicasStubs = new ArrayList<ReplicaReplicaInterface>(slaveReplicas.size());
+		
+		for (ReplicaLoc loc : slaveReplicas) {
+			// if the current locations is this replica .. ignore
+			if (loc.getId() == this.id)
+				continue;
+			
+			// if this is a new replica generate stub for this replica
+			if (!replicaServersLoc.containsKey(loc.getId())){
+				replicaServersLoc.put(loc.getId(), loc);
+				replicaServersStubs.put(loc.getId(), genStub(loc));
+			}
+			
+			ReplicaReplicaInterface replicaStub = replicaServersStubs.get(loc.getId());
+			slaveReplicasStubs.add(replicaStub);
+		}
+		
+		filesReplicaMap.put(fileName, slaveReplicasStubs);
+	}
+	
+	private ReplicaReplicaInterface genStub(ReplicaLoc loc){
+		//TODO manual generated stub [[fakss]]
+		return null;
+	}
+
+	@Override
+	public boolean isAlive() {
 		return true;
 	}
 	
