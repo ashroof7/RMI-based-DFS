@@ -1,6 +1,11 @@
+import java.io.Serializable;
 
-public class ChunkAck {
 
+public class ChunkAck implements Serializable{
+
+	
+	private static final long serialVersionUID = 4267009886985001938L;
+	
 	private long transactionId;
 	private long seqNo;
 

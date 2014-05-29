@@ -1,5 +1,10 @@
+import java.io.Serializable;
 
-public class ReplicaLoc {
+
+public class ReplicaLoc implements Serializable{
+	
+	private static final long serialVersionUID = -4113307750760738108L;
+	
 	private String address;
 	private int id;
 	private boolean isAlive;

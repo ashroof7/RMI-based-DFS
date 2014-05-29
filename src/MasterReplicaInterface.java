@@ -1,6 +1,6 @@
 import java.rmi.Remote;
 
 
-public interface MasterReplicaInterface extends Remote{
+public interface MasterReplicaInterface extends MasterInterface{
 	
 }

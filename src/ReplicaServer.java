@@ -5,11 +5,12 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.rmi.AccessException;
+import java.rmi.NotBoundException;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
-import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -21,7 +22,7 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 		ReplicaMasterInterface, ReplicaReplicaInterface, Remote {
 
 	
-	static Registry registry;
+	Registry registry;
 	
 	int regPort = Configurations.REG_PORT;
 	String regAddr = Configurations.REG_ADDR;
@@ -48,6 +49,7 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 		replicaServersStubs = new TreeMap<Integer, ReplicaReplicaInterface>();
 		try {
 			init();
+			registry = LocateRegistry.getRegistry(regAddr, regPort);
 		} catch (RemoteException e) {
 			e.printStackTrace();
 		}
@@ -78,7 +80,7 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 	@Override
 	public ChunkAck write(long txnID, long msgSeqNum, FileContent data)
 			throws RemoteException, IOException {
-		
+		System.out.println("[@ReplicaServer] write "+msgSeqNum);
 		// if this is not the first message of the write transaction
 		if (!txnFileMap.containsKey(txnID)){
 			txnFileMap.put(txnID, new TreeMap<Long, byte[]>());
@@ -93,6 +95,9 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 	@Override
 	public boolean commit(long txnID, long numOfMsgs)
 			throws MessageNotFoundException, RemoteException, IOException {
+		
+		
+		System.out.println("[@Replica] commit intiated");
 		Map<Long, byte[]> chunkMap = txnFileMap.get(txnID);
 		if (chunkMap.size() < numOfMsgs)
 			throw new MessageNotFoundException();
@@ -100,8 +105,9 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 		String fileName = activeTxn.get(txnID);
 		List<ReplicaReplicaInterface> slaveReplicas = filesReplicaMap.get(fileName);
 		
+		System.out.println("slaves : "+slaveReplicas);
 		for (ReplicaReplicaInterface replica : slaveReplicas) {
-			boolean sucess = replica.reflectUpdate(txnID, fileName, chunkMap.values());
+			boolean sucess = replica.reflectUpdate(txnID, fileName, new ArrayList<>(chunkMap.values()));
 			if (!sucess) {
 				// TODO handle failure 
 			}
@@ -137,18 +143,11 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 		File file = new File(dir);
 		if (!file.exists())
 			file.mkdir();
-		
-		// TODO create tub for replicaMaster interface
-		registry = LocateRegistry.getRegistry(regAddr, regPort);
-		
-		ReplicaServer stub = (ReplicaServer) UnicastRemoteObject.exportObject(this, 0);
-
-		// Bind the remote object's stub in the registry
-		registry.rebind("ReplicaClient"+id, stub);
 	}
 
 	@Override
-	public boolean reflectUpdate(long txnID, String fileName, Collection<byte[]> data) throws IOException{
+	public boolean reflectUpdate(long txnID, String fileName, ArrayList<byte[]> data) throws IOException{
+		System.out.println("[@Replica] reflect update initiated");
 		BufferedOutputStream bw =new BufferedOutputStream(new FileOutputStream(dir+fileName));
 		
 		for (Iterator<byte[]> iterator = data.iterator(); iterator.hasNext();) 
@@ -160,20 +159,23 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 	}
 
 	@Override
-	public void takeCharge(String fileName, List<ReplicaLoc> slaveReplicas) {
+	public void takeCharge(String fileName, List<ReplicaLoc> slaveReplicas) throws AccessException, RemoteException, NotBoundException {
+		System.out.println("[@Replica] taking charge of file: "+fileName);
+		System.out.println(slaveReplicas);
+		
 		List<ReplicaReplicaInterface> slaveReplicasStubs = new ArrayList<ReplicaReplicaInterface>(slaveReplicas.size());
 		
 		for (ReplicaLoc loc : slaveReplicas) {
 			// if the current locations is this replica .. ignore
 			if (loc.getId() == this.id)
 				continue;
-			
+			  
 			// if this is a new replica generate stub for this replica
 			if (!replicaServersLoc.containsKey(loc.getId())){
 				replicaServersLoc.put(loc.getId(), loc);
-				replicaServersStubs.put(loc.getId(), genStub(loc));
+				ReplicaReplicaInterface stub = (ReplicaReplicaInterface) registry.lookup("ReplicaClient"+loc.getId());
+				replicaServersStubs.put(loc.getId(), stub);
 			}
-			
 			ReplicaReplicaInterface replicaStub = replicaServersStubs.get(loc.getId());
 			slaveReplicasStubs.add(replicaStub);
 		}
@@ -181,10 +183,6 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 		filesReplicaMap.put(fileName, slaveReplicasStubs);
 	}
 	
-	private ReplicaReplicaInterface genStub(ReplicaLoc loc){
-		//TODO manual generated stub [[fakss]]
-		return null;
-	}
 
 	@Override
 	public boolean isAlive() {

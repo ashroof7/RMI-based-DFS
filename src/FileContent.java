@@ -1,6 +1,12 @@
+import java.io.Serializable;
 
-public class FileContent {
+
+public class FileContent implements Serializable{
 	
+
+
+	private static final long serialVersionUID = -6980642919938620877L;
+
 	private String fileName;
 	private byte[] data;
 	

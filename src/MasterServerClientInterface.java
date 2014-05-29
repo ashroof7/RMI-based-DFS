@@ -4,7 +4,7 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.List;
 
-public interface MasterServerClientInterface extends Remote {
+public interface MasterServerClientInterface extends MasterInterface {
 
 	/**
 	 * Read file from server

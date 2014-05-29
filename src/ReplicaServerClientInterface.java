@@ -4,7 +4,7 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 
 
-public interface ReplicaServerClientInterface extends Remote {
+public interface ReplicaServerClientInterface extends ReplicaInterface {
 	/**
 	 * @param fileName
 	 * @return File data

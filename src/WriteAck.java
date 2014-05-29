@@ -1,5 +1,10 @@
+import java.io.Serializable;
 
-public class WriteAck {
+
+public class WriteAck implements Serializable{
+	
+	private static final long serialVersionUID = -4764830257785399352L;
+	
 	private long transactionId;
 	private long timeStamp;
 	private ReplicaLoc loc;

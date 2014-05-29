@@ -15,10 +15,10 @@ public class Client {
 	String regAddr = Configurations.REG_ADDR;
 	int chunkSize = Configurations.CHUNK_SIZE; // in bytes 
 	
-	private Client() {
+	public Client() {
 		try {
 			registry = LocateRegistry.getRegistry(regAddr, regPort);
-			masterStub =  (MasterServerClientInterface) registry.lookup("MasterServer");
+			masterStub =  (MasterServerClientInterface) registry.lookup("MasterServerClientInterface");
 			System.out.println("[@client] Master Stub fetched successfuly");
 		} catch (RemoteException | NotBoundException e) {
 			// fatal error .. no registry could be linked
@@ -26,7 +26,7 @@ public class Client {
 		}
 	}
 
-	private byte[] read(String fileName) throws IOException, NotBoundException{
+	public byte[] read(String fileName) throws IOException, NotBoundException{
 		List<ReplicaLoc> locations = masterStub.read(fileName);
 		System.out.println("[@client] Master Granted read operation");
 		
@@ -39,46 +39,55 @@ public class Client {
 		return fileContent.getData();
 	}
 	
-	private void write (String fileName, byte[] data) throws IOException, NotBoundException, MessageNotFoundException{
+	public void write (String fileName, byte[] data) throws IOException, NotBoundException, MessageNotFoundException{
 		WriteAck ackMsg = masterStub.write(fileName);
 		ReplicaServerClientInterface replicaStub = (ReplicaServerClientInterface) registry.lookup("ReplicaClient"+ackMsg.getLoc().getId());
 		
 		System.out.println("[@client] Master granted write operation");
 		
-		byte[] chunk = new byte[chunkSize];
-		int segN = (int) Math.ceil(data.length/chunkSize);
+		int segN = (int) Math.ceil(1.0*data.length/chunkSize);
 		FileContent fileContent = new FileContent(fileName);
 		ChunkAck chunkAck;
+		byte[] chunk = new byte[chunkSize];
 		
-		for (int i = 0; i < segN; i++) {
+		for (int i = 0; i < segN-1; i++) {
 			System.arraycopy(data, i*chunkSize, chunk, 0, chunkSize);
 			fileContent.setData(chunk);
 			do { 
 				chunkAck = replicaStub.write(ackMsg.getTransactionId(), i, fileContent);
-			} while(chunkAck.getSeqNo() == i);
-			 
+			} while(chunkAck.getSeqNo() != i);
 		}
+
+		// Handling last chunk of the file < chunk size
+		chunk = new byte[data.length%chunkSize];
+		System.arraycopy(data, data.length/chunkSize, chunk, 0,  data.length%chunkSize);
+		fileContent.setData(chunk);
+		do { 
+			chunkAck = replicaStub.write(ackMsg.getTransactionId(), segN-1, fileContent);
+		} while(chunkAck.getSeqNo() != segN-1 );
+		
+		
 		System.out.println("[@client] write operation complete");
 		replicaStub.commit(ackMsg.getTransactionId(), segN);
 		System.out.println("[@client] commit operation complete");
 	}
 	
-	public static void main(String[] args) {
-		//String host = (args.length < 1) ? null : args[0];
-		try {
-			Client c = new Client();
-			char[] ss = "real madrid won la decima 10".toCharArray();
-			byte[] data = new byte[ss.length];
-			for (int i = 0; i < ss.length; i++) 
-				data[i] = (byte) ss[i];
-			
-			c.write("file1", data);
-			byte[] ret = c.read("file1");
-			System.out.println("response: " + ret);
-			
-		} catch (NotBoundException | IOException | MessageNotFoundException e) {
-			e.printStackTrace();
-		}
-	}	
+//	public static void main(String[] args) {
+//		//String host = (args.length < 1) ? null : args[0];
+//		try {
+//			Client c = new Client();
+//			char[] ss = "real madrid won la decima 10".toCharArray();
+//			byte[] data = new byte[ss.length];
+//			for (int i = 0; i < ss.length; i++) 
+//				data[i] = (byte) ss[i];
+//			
+//			c.write("file1", data);
+//			byte[] ret = c.read("file1");
+//			System.out.println("response: " + ret);
+//			
+//		} catch (NotBoundException | IOException | MessageNotFoundException e) {
+//			e.printStackTrace();
+//		}
+//	}	
 
 }
