@@ -22,7 +22,7 @@ public class Master implements MasterReplicaInterface, MasterServerClientInterfa
 
 	Random randomGen;
 	int MAX_TRANSACTION = 1000;
-	int REPLICATION_N = 2; // number of file replicas
+	int REPLICATION_N = 3; // number of file replicas
 	int nextTID;
 
 	public Master() {
@@ -77,11 +77,7 @@ public class Master implements MasterReplicaInterface, MasterServerClientInterfa
 	 */
 	private void checkReplicasAlive(){
 		for (ReplicaLoc replicaLoc : replicaServersLocs) {
-//			try{
 				replicaServersStubs.get(replicaLoc.getId()).isAlive();
-//			}catch (RemoteException e){
-//				replicaLoc.setAlive(false);
-//			}
 		}
 	}
 	
@@ -104,8 +100,6 @@ public class Master implements MasterReplicaInterface, MasterServerClientInterfa
 		if (!newPrimaryAssigned){
 			//TODO a7a ya3ni
 		}
-
-
 	}
 
 	/**

@@ -10,4 +10,19 @@ public class WriteAck {
 		this.timeStamp = timeStamp;
 		this.loc = replicaLoc;
 	}
+
+
+	public long getTransactionId() {
+		return transactionId;
+	}
+
+
+	public long getTimeStamp() {
+		return timeStamp;
+	}
+
+
+	public ReplicaLoc getLoc() {
+		return loc;
+	}
 }

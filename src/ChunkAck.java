@@ -9,4 +9,12 @@ public class ChunkAck {
 		this.transactionId = tid;
 		this.seqNo = seqNo;
 	}
+	
+	public long getSeqNo(){
+		return seqNo;
+	}
+	
+	public long getTxnID() {
+		return transactionId;
+	}
 }

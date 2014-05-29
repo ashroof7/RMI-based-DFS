@@ -7,6 +7,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -18,6 +21,12 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 		ReplicaMasterInterface, ReplicaReplicaInterface, Remote {
 
 	
+	static Registry registry;
+	
+	int regPort = Configurations.REG_PORT;
+	String regAddr = Configurations.REG_ADDR;
+	int chunkSize = Configurations.CHUNK_SIZE; // in bytes 
+	
 	private String dir;
 	
 	private int id;
@@ -27,20 +36,21 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 	private Map<Integer, ReplicaLoc> replicaServersLoc; // Map<ReplicaID, replicaLoc>
 	private Map<Integer, ReplicaReplicaInterface> replicaServersStubs; // Map<ReplicaID, replicaStub>
 	
-	//	TODO move to mesh 3aref eh 
-	public static final int CHUNK_SIZE = 1024; // in bytes 
-	
 	
 	
 	public ReplicaServer(int id, String dir) {
 		this.id = id;
-		this.dir = dir+"/";
+		this.dir = dir+"/Replica_"+id+"/";
 		txnFileMap = new TreeMap<Long, Map<Long, byte[]>>();
 		activeTxn = new TreeMap<Long, String>();
 		filesReplicaMap = new TreeMap<String, List<ReplicaReplicaInterface>>();
 		replicaServersLoc = new TreeMap<Integer, ReplicaLoc>();
 		replicaServersStubs = new TreeMap<Integer, ReplicaReplicaInterface>();
-		init();
+		try {
+			init();
+		} catch (RemoteException e) {
+			e.printStackTrace();
+		}
 	}
 
 	@Override
@@ -119,14 +129,22 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 		return false;
 	}
 
-	/**
+	
+	/*
 	 * initializes the replica servers & creates the directories required 
 	 */
-	private void init(){
+	private void init() throws RemoteException{
 		File file = new File(dir);
 		if (!file.exists())
 			file.mkdir();
-		//TODO create replica stub and add to registry 	
+		
+		// TODO create tub for replicaMaster interface
+		registry = LocateRegistry.getRegistry(regAddr, regPort);
+		
+		ReplicaServer stub = (ReplicaServer) UnicastRemoteObject.exportObject(this, 0);
+
+		// Bind the remote object's stub in the registry
+		registry.rebind("ReplicaClient"+id, stub);
 	}
 
 	@Override

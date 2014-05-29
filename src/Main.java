@@ -1,4 +1,3 @@
-import java.rmi.AlreadyBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -7,8 +6,7 @@ import java.rmi.server.UnicastRemoteObject;
 
 public class Main {
 
-	final static int regPort = 50000;
-	final static String serverName = "Master";
+	static int regPort = Configurations.REG_PORT;
 
 	public static void main(String[] args) {
 		
@@ -21,9 +19,13 @@ public class Main {
 
 			Registry registry = LocateRegistry.getRegistry(regPort);
 			// Bind the remote object's stub in the registry
-			registry.rebind("MasterServerClientInterface", stub);
+			registry.rebind("MasterServer", stub);
 			System.err.println("Server ready");
+		
 			
+			// respawn replica servers 
+			ReplicaServer rs = new ReplicaServer(0, "./");
+			System.out.println("replica server state [@ main] = "+rs.isAlive());
 		} catch (RemoteException  e) {
 			System.err.println("Server exception: " + e.toString());
 			e.printStackTrace();

@@ -2,8 +2,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
 public interface MasterServerClientInterface extends Remote {
@@ -28,6 +26,6 @@ public interface MasterServerClientInterface extends Remote {
 	 * @throws RemoteException
 	 * @throws IOException
 	 */
-	public WriteAck write(String data) throws RemoteException, IOException;
+	public WriteAck write(String fileName) throws RemoteException, IOException;
 
 }
