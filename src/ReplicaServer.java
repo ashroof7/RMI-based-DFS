@@ -180,6 +180,12 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 	}
 
 	@Override
+	public void releaseLock(String fileName) {
+		ReentrantReadWriteLock lock = locks.get(fileName);
+		lock.writeLock().unlock();
+	}
+
+	@Override
 	public void takeCharge(String fileName, List<ReplicaLoc> slaveReplicas) throws AccessException, RemoteException, NotBoundException {
 		System.out.println("[@Replica] taking charge of file: "+fileName);
 		System.out.println(slaveReplicas);
@@ -208,13 +214,6 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 	@Override
 	public boolean isAlive() {
 		return true;
-	}
-
-	
-	@Override
-	public void releaseLock(String fileName) {
-		ReentrantReadWriteLock lock = locks.get(fileName);
-		lock.writeLock().unlock();
 	}
 	
 }
