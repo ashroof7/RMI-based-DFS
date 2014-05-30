@@ -12,32 +12,31 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class ReplicaServer implements ReplicaServerClientInterface,
 		ReplicaMasterInterface, ReplicaReplicaInterface, Remote {
 
 	
-	Registry registry;
-	
-	int regPort = Configurations.REG_PORT;
-	String regAddr = Configurations.REG_ADDR;
-	int chunkSize = Configurations.CHUNK_SIZE; // in bytes 
-	
-	private String dir;
+	private int regPort = Configurations.REG_PORT;
+	private String regAddr = Configurations.REG_ADDR;
 	
 	private int id;
+	private String dir;
+	private Registry registry;
+	
 	private Map<Long, String> activeTxn; // map between active transactions and file names
 	private Map<Long, Map<Long, byte[]>> txnFileMap; // map between transaction ID and corresponding file chunks
 	private Map<String,	 List<ReplicaReplicaInterface> > filesReplicaMap; //replicas where files that this replica is its master are replicated  
 	private Map<Integer, ReplicaLoc> replicaServersLoc; // Map<ReplicaID, replicaLoc>
 	private Map<Integer, ReplicaReplicaInterface> replicaServersStubs; // Map<ReplicaID, replicaStub>
-	
-	
+	private ConcurrentMap<String, ReentrantReadWriteLock> locks; // locks objects of the open files
 	
 	public ReplicaServer(int id, String dir) {
 		this.id = id;
@@ -47,8 +46,13 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 		filesReplicaMap = new TreeMap<String, List<ReplicaReplicaInterface>>();
 		replicaServersLoc = new TreeMap<Integer, ReplicaLoc>();
 		replicaServersStubs = new TreeMap<Integer, ReplicaReplicaInterface>();
-		try {
-			init();
+		locks = new ConcurrentHashMap<String, ReentrantReadWriteLock>();
+		
+		File file = new File(dir);
+		if (!file.exists())
+			file.mkdir();
+		
+		try  {
 			registry = LocateRegistry.getRegistry(regAddr, regPort);
 		} catch (RemoteException e) {
 			e.printStackTrace();
@@ -58,7 +62,13 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 	@Override
 	public void createFile(String fileName) throws IOException {
 		File file = new File(dir+fileName);
+		
+		locks.putIfAbsent(fileName, new ReentrantReadWriteLock());
+		ReentrantReadWriteLock lock = locks.get(fileName);
+		
+		lock.writeLock().lock();
 		file.createNewFile();
+		lock.writeLock().unlock();
 	}
 
 	@Override
@@ -66,12 +76,18 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 			RemoteException, IOException {
 		File f = new File(dir+fileName);
 		
+		locks.putIfAbsent(fileName, new ReentrantReadWriteLock());
+		ReentrantReadWriteLock lock = locks.get(fileName);
+		
 		@SuppressWarnings("resource")
 		BufferedInputStream br = new BufferedInputStream(new FileInputStream(f));
 		
 		// assuming files are small and can fit in memory
 		byte data[] = new byte[(int) (f.length())];
+		
+		lock.readLock().lock();
 		br.read(data);
+		lock.readLock().unlock();
 		
 		FileContent content = new FileContent(fileName, data);
 		return content;
@@ -105,7 +121,6 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 		String fileName = activeTxn.get(txnID);
 		List<ReplicaReplicaInterface> slaveReplicas = filesReplicaMap.get(fileName);
 		
-		System.out.println("slaves : "+slaveReplicas);
 		for (ReplicaReplicaInterface replica : slaveReplicas) {
 			boolean sucess = replica.reflectUpdate(txnID, fileName, new ArrayList<>(chunkMap.values()));
 			if (!sucess) {
@@ -113,17 +128,26 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 			}
 		}
 		
-		// TODO acquire Lock
-		BufferedOutputStream bw =new BufferedOutputStream(new FileOutputStream(dir+fileName));
 		
+		BufferedOutputStream bw =new BufferedOutputStream(new FileOutputStream(dir+fileName, true));
+		
+		locks.putIfAbsent(fileName, new ReentrantReadWriteLock());
+		ReentrantReadWriteLock lock = locks.get(fileName);
+		
+		lock.writeLock().lock();
 		for (Iterator<byte[]> iterator = chunkMap.values().iterator(); iterator.hasNext();) 
 			bw.write(iterator.next());
-		
 		bw.close();
+		lock.writeLock().unlock();
+		
+		
+		for (ReplicaReplicaInterface replica : slaveReplicas) 
+			replica.releaseLock(fileName);
+		
+		
 		activeTxn.remove(txnID);
 		txnFileMap.remove(txnID);
 		// TODO release lock
-		
 		
 		return false;
 	}
@@ -135,24 +159,21 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 		return false;
 	}
 
-	
-	/*
-	 * initializes the replica servers & creates the directories required 
-	 */
-	private void init() throws RemoteException{
-		File file = new File(dir);
-		if (!file.exists())
-			file.mkdir();
-	}
 
 	@Override
 	public boolean reflectUpdate(long txnID, String fileName, ArrayList<byte[]> data) throws IOException{
 		System.out.println("[@Replica] reflect update initiated");
-		BufferedOutputStream bw =new BufferedOutputStream(new FileOutputStream(dir+fileName));
+		BufferedOutputStream bw =new BufferedOutputStream(new FileOutputStream(dir+fileName, true));
+
+
+		locks.putIfAbsent(fileName, new ReentrantReadWriteLock());
+		ReentrantReadWriteLock lock = locks.get(fileName);
 		
+		lock.writeLock().lock(); // don't release lock here .. making sure coming reads can't proceed
 		for (Iterator<byte[]> iterator = data.iterator(); iterator.hasNext();) 
 			bw.write(iterator.next());
 		bw.close();
+		
 		
 		activeTxn.remove(txnID);
 		return true;
@@ -187,6 +208,13 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 	@Override
 	public boolean isAlive() {
 		return true;
+	}
+
+	
+	@Override
+	public void releaseLock(String fileName) {
+		ReentrantReadWriteLock lock = locks.get(fileName);
+		lock.writeLock().unlock();
 	}
 	
 }

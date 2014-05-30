@@ -45,7 +45,7 @@ public class Main {
 	public static void launchClients(){
 		try {
 			Client c = new Client();
-			char[] ss = "real madrid won la decima 10".toCharArray();
+			char[] ss = " Appending to the file \\n".toCharArray();
 			byte[] data = new byte[ss.length];
 			for (int i = 0; i < ss.length; i++) 
 				data[i] = (byte) ss[i];
