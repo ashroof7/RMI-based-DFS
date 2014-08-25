@@ -101,8 +101,8 @@ public class Master implements MasterReplicaInterface, MasterServerClientInterfa
 			// TODO if no replica alive enter infinte loop
 			do {
 				luckyReplicas[i] = randomGen.nextInt(replicationN);
-				System.err.println(luckyReplicas[i] );
-				System.err.println(replicaServersLocs.get(luckyReplicas[i]).isAlive());
+//				System.err.println(luckyReplicas[i] );
+//				System.err.println(replicaServersLocs.get(luckyReplicas[i]).isAlive());
 			} while(!replicaServersLocs.get(luckyReplicas[i]).isAlive() || chosenReplicas.contains(luckyReplicas[i]));
 
 

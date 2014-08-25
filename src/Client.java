@@ -69,9 +69,8 @@ public class Client {
 		ChunkAck chunkAck;
 		byte[] chunk = new byte[chunkSize];
 		
-		for (int i = 0; i < segN; i++) {
+		for (int i = 0; i < segN-1; i++) {
 			System.arraycopy(data, i*chunkSize, chunk, 0, chunkSize);
-			System.err.println(new String(chunk));
 			fileContent.setData(chunk);
 			do { 
 				chunkAck = replicaStub.write(ackMsg.getTransactionId(), i, fileContent);
@@ -79,12 +78,15 @@ public class Client {
 		}
 
 		// Handling last chunk of the file < chunk size
-//		chunk = new byte[data.length%chunkSize];
-//		System.arraycopy(data, data.length/chunkSize, chunk, 0,  data.length%chunkSize);
-//		fileContent.setData(chunk);
-//		do { 
-//			chunkAck = replicaStub.write(ackMsg.getTransactionId(), segN-1, fileContent);
-//		} while(chunkAck.getSeqNo() != segN-1 );
+		int lastChunkLen = chunkSize;
+		if (data.length%chunkSize > 0)
+			lastChunkLen = data.length%chunkSize; 
+		chunk = new byte[lastChunkLen];
+		System.arraycopy(data, segN-1, chunk, 0, lastChunkLen);
+		fileContent.setData(chunk);
+		do { 
+			chunkAck = replicaStub.write(ackMsg.getTransactionId(), segN-1, fileContent);
+		} while(chunkAck.getSeqNo() != segN-1 );
 		
 		
 		System.out.println("[@client] write operation complete");
