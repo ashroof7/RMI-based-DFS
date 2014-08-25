@@ -168,6 +168,13 @@ public class Master implements MasterReplicaInterface, MasterServerClientInterfa
 		return new WriteAck(tid, timeStamp,primaryReplicaLoc);
 	}
 
+	@Override
+	public ReplicaLoc locatePrimaryReplica(String fileName)
+			throws RemoteException {
+		
+		return primaryReplicaMap.get(fileName);
+	}
+	
 
 	/**
 	 * registers new replica server @ the master by adding required meta data
@@ -178,6 +185,8 @@ public class Master implements MasterReplicaInterface, MasterServerClientInterfa
 		replicaServersLocs.add(replicaLoc);
 		replicaServersStubs.add( (ReplicaMasterInterface) replicaStub);
 	}
+
+	
 
 	//TODO add commit to master to handle meta-data
 

@@ -36,7 +36,26 @@ public class Client {
 		ReplicaServerClientInterface replicaStub = (ReplicaServerClientInterface) registry.lookup("ReplicaClient"+replicaLoc.getId());
 		FileContent fileContent = replicaStub.read(fileName);
 		System.out.println("[@client] read operation completed successfuly");
+		System.out.println("[@client] data:");
+		
+		System.out.println(new String(fileContent.getData()));
 		return fileContent.getData();
+	}
+	
+	public ReplicaServerClientInterface initWrite(String fileName, Long txnID) throws IOException, NotBoundException{
+		WriteAck ackMsg = masterStub.write(fileName);
+		txnID = new Long(ackMsg.getTransactionId());
+		return (ReplicaServerClientInterface) registry.lookup("ReplicaClient"+ackMsg.getLoc().getId());
+	}
+	
+	public void writeChunk (long txnID, String fileName, byte[] chunk, long seqN, ReplicaServerClientInterface replicaStub) throws RemoteException, IOException{
+		
+		FileContent fileContent = new FileContent(fileName, chunk);
+		ChunkAck chunkAck;
+		
+		do { 
+			chunkAck = replicaStub.write(txnID, seqN, fileContent);
+		} while(chunkAck.getSeqNo() != seqN);
 	}
 	
 	public void write (String fileName, byte[] data) throws IOException, NotBoundException, MessageNotFoundException{
@@ -50,8 +69,9 @@ public class Client {
 		ChunkAck chunkAck;
 		byte[] chunk = new byte[chunkSize];
 		
-		for (int i = 0; i < segN-1; i++) {
+		for (int i = 0; i < segN; i++) {
 			System.arraycopy(data, i*chunkSize, chunk, 0, chunkSize);
+			System.err.println(new String(chunk));
 			fileContent.setData(chunk);
 			do { 
 				chunkAck = replicaStub.write(ackMsg.getTransactionId(), i, fileContent);
@@ -59,12 +79,12 @@ public class Client {
 		}
 
 		// Handling last chunk of the file < chunk size
-		chunk = new byte[data.length%chunkSize];
-		System.arraycopy(data, data.length/chunkSize, chunk, 0,  data.length%chunkSize);
-		fileContent.setData(chunk);
-		do { 
-			chunkAck = replicaStub.write(ackMsg.getTransactionId(), segN-1, fileContent);
-		} while(chunkAck.getSeqNo() != segN-1 );
+//		chunk = new byte[data.length%chunkSize];
+//		System.arraycopy(data, data.length/chunkSize, chunk, 0,  data.length%chunkSize);
+//		fileContent.setData(chunk);
+//		do { 
+//			chunkAck = replicaStub.write(ackMsg.getTransactionId(), segN-1, fileContent);
+//		} while(chunkAck.getSeqNo() != segN-1 );
 		
 		
 		System.out.println("[@client] write operation complete");
@@ -72,22 +92,32 @@ public class Client {
 		System.out.println("[@client] commit operation complete");
 	}
 	
-//	public static void main(String[] args) {
-//		//String host = (args.length < 1) ? null : args[0];
-//		try {
-//			Client c = new Client();
-//			char[] ss = "real madrid won la decima 10".toCharArray();
-//			byte[] data = new byte[ss.length];
-//			for (int i = 0; i < ss.length; i++) 
-//				data[i] = (byte) ss[i];
-//			
-//			c.write("file1", data);
-//			byte[] ret = c.read("file1");
-//			System.out.println("response: " + ret);
-//			
-//		} catch (NotBoundException | IOException | MessageNotFoundException e) {
-//			e.printStackTrace();
-//		}
-//	}	
-
+	public void commit(String fileName, long txnID, long seqN) throws MessageNotFoundException, IOException, NotBoundException{
+		ReplicaLoc primaryLoc = masterStub.locatePrimaryReplica(fileName);
+		ReplicaServerClientInterface primaryStub = (ReplicaServerClientInterface) registry.lookup("ReplicaClient"+primaryLoc.getId());
+		primaryStub.commit(txnID, seqN);
+		System.out.println("[@client] commit operation complete");
+	}
+	
+	public void batchOperations(String[] cmds){
+		System.out.println("[@client] batch operations started");
+		String cmd ;
+		String[] tokens;
+		for (int i = 0; i < cmds.length; i++) {
+			cmd = cmds[i];
+			tokens = cmd.split(", ");
+			try {
+				if (tokens[0].trim().equals("read"))
+					this.read(tokens[1].trim());
+				else if (tokens[0].trim().equals("write"))
+					this.write(tokens[1].trim(), tokens[2].trim().getBytes());
+				else if (tokens[0].trim().equals("commit"))
+						this.commit(tokens[1].trim(), Long.parseLong(tokens[2].trim()), Long.parseLong(tokens[3].trim()));
+			}catch (IOException | NotBoundException | MessageNotFoundException e){
+				System.err.println("Operation "+i+" Failed");
+			}
+		}
+		System.out.println("[@client] batch operations completed");
+	}
+	
 }

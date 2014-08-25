@@ -48,9 +48,10 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 		replicaServersStubs = new TreeMap<Integer, ReplicaReplicaInterface>();
 		locks = new ConcurrentHashMap<String, ReentrantReadWriteLock>();
 		
-		File file = new File(dir);
-		if (!file.exists())
+		File file = new File(this.dir);
+		if (!file.exists()){
 			file.mkdir();
+		}
 		
 		try  {
 			registry = LocateRegistry.getRegistry(regAddr, regPort);
@@ -147,7 +148,6 @@ public class ReplicaServer implements ReplicaServerClientInterface,
 		
 		activeTxn.remove(txnID);
 		txnFileMap.remove(txnID);
-		// TODO release lock
 		
 		return false;
 	}

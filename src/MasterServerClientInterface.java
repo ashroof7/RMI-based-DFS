@@ -26,5 +26,12 @@ public interface MasterServerClientInterface extends MasterInterface {
 	 * @throws IOException
 	 */
 	public WriteAck write(String fileName) throws RemoteException, IOException;
-
+	
+	
+	/**
+	 * @param fileName
+	 * @return the replica location of the primary replica of that file
+	 * @throws RemoteException
+	 */
+	public ReplicaLoc locatePrimaryReplica(String fileName) throws RemoteException;
 }

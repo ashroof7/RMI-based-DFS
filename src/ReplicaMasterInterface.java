@@ -11,7 +11,7 @@ public interface ReplicaMasterInterface extends ReplicaInterface{
 	 * @param fileName
 	 * @throws IOException 
 	 */
-	void createFile(String fileName) throws RemoteException, IOException;
+	public void createFile(String fileName) throws RemoteException, IOException;
 	
 	/**
 	 * makes the current replica the master of the passed file
@@ -19,11 +19,11 @@ public interface ReplicaMasterInterface extends ReplicaInterface{
 	 * @param slaveReplicas another replicas having the files
 	 * @throws NotBoundException 
 	 */
-	void takeCharge(String fileName, List<ReplicaLoc> slaveReplicas) throws RemoteException, NotBoundException ;
+	public void takeCharge(String fileName, List<ReplicaLoc> slaveReplicas) throws RemoteException, NotBoundException ;
 	
 	/**
 	 * @return true if the replica alive and received the call .. no return otherwise,
 	 */
-	boolean isAlive() throws RemoteException;
+	public boolean isAlive() throws RemoteException;
 	
 }
